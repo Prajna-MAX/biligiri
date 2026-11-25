@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+
 export const STATUS_LABEL = { pending: 'Pending', in_progress: 'In progress', completed: 'Completed' };
 
 export const StatusBadge = ({ status }) => (
@@ -19,6 +21,15 @@ export const fmtDate = (d) => (d ? new Date(d).toLocaleDateString() : '—');
 export const fmtDateTime = (d) => (d ? new Date(d).toLocaleString() : '—');
 
 export function Modal({ title, onClose, children }) {
+  // Keep the page behind the popup from scrolling (matters most on phones)
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>

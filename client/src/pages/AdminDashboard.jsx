@@ -96,7 +96,7 @@ export default function AdminDashboard() {
       </div>
 
       {tab === 'tasks' && (
-        <section className="card">
+        <section className="card table-card">
           <div className="toolbar">
             <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
               <option value="">All statuses</option>
@@ -118,7 +118,7 @@ export default function AdminDashboard() {
           </div>
           {!workers.length && <p className="muted">Add a worker in the Workers tab before assigning tasks.</p>}
           <div className="table-wrap">
-            <table>
+            <table className="stack">
               <thead>
                 <tr>
                   <th>Task</th><th>Worker</th><th>Customer</th><th>Priority</th>
@@ -128,13 +128,13 @@ export default function AdminDashboard() {
               <tbody>
                 {tasks.map((t) => (
                   <tr key={t._id} className="clickable" onClick={() => setViewing(t)}>
-                    <td><strong>{t.title}</strong></td>
-                    <td>{t.assignedTo?.name || <span className="muted">Removed</span>}</td>
-                    <td>{t.customerName || '—'}</td>
-                    <td><PriorityBadge priority={t.priority} /></td>
-                    <td><StatusBadge status={t.status} /></td>
-                    <td>{fmtDate(t.dueDate)}</td>
-                    <td>{t.feedback ? <Stars value={t.feedback.rating} /> : <span className="muted">—</span>}</td>
+                    <td className="cell-title"><strong>{t.title}</strong></td>
+                    <td data-label="Worker">{t.assignedTo?.name || <span className="muted">Removed</span>}</td>
+                    <td data-label="Customer">{t.customerName || '—'}</td>
+                    <td data-label="Priority"><PriorityBadge priority={t.priority} /></td>
+                    <td data-label="Status"><StatusBadge status={t.status} /></td>
+                    <td data-label="Due">{fmtDate(t.dueDate)}</td>
+                    <td data-label="Feedback">{t.feedback ? <Stars value={t.feedback.rating} /> : <span className="muted">—</span>}</td>
                   </tr>
                 ))}
                 {!tasks.length && (
@@ -147,26 +147,26 @@ export default function AdminDashboard() {
       )}
 
       {tab === 'workers' && (
-        <section className="card">
+        <section className="card table-card">
           <div className="toolbar">
             <div className="spacer" />
             <button className="btn primary" onClick={() => setAddingWorker(true)}>+ Add worker</button>
           </div>
           <div className="table-wrap">
-            <table>
+            <table className="stack">
               <thead>
-                <tr><th>Name</th><th>Email</th><th>Phone</th><th>Pending</th><th>In progress</th><th>Completed</th><th /></tr>
+                <tr><th>Name</th><th>Phone</th><th>Email</th><th>Pending</th><th>In progress</th><th>Completed</th><th /></tr>
               </thead>
               <tbody>
                 {workers.map((w) => (
                   <tr key={w._id}>
-                    <td><strong>{w.name}</strong></td>
-                    <td>{w.email || '—'}</td>
-                    <td>{formatPhone(w.phone) || '—'}</td>
-                    <td>{w.taskCounts.pending}</td>
-                    <td>{w.taskCounts.in_progress}</td>
-                    <td>{w.taskCounts.completed}</td>
-                    <td className="right">
+                    <td className="cell-title"><strong>{w.name}</strong></td>
+                    <td data-label="Phone">{formatPhone(w.phone) || '—'}</td>
+                    <td data-label="Email" className="cell-wrap">{w.email || '—'}</td>
+                    <td data-label="Pending">{w.taskCounts.pending}</td>
+                    <td data-label="In progress">{w.taskCounts.in_progress}</td>
+                    <td data-label="Completed">{w.taskCounts.completed}</td>
+                    <td className="right cell-actions">
                       <button className="btn ghost small" onClick={() => { setFilters({ status: '', worker: w._id }); setTab('tasks'); }}>
                         View tasks
                       </button>

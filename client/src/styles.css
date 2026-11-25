@@ -32,7 +32,9 @@ h4 { margin-top: 18px; font-size: 13px; text-transform: uppercase; letter-spacin
 }
 .topbar-right { display: flex; align-items: center; gap: 12px; }
 .brand { font-weight: 700; font-size: 20px; color: var(--primary); }
-.role { text-transform: capitalize; }
+.who { color: var(--muted); display: flex; gap: 6px; align-items: baseline; min-width: 0; }
+.who-name { color: var(--text); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.role { text-transform: capitalize; font-size: 12px; }
 .container { max-width: 1200px; margin: 0 auto; padding: 24px 16px; }
 
 .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
@@ -139,7 +141,110 @@ tr.clickable:hover td { background: #f8f9fc; }
 .timeline li::before { content: ''; position: absolute; left: -6px; top: 9px; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); }
 .note-form { display: flex; gap: 8px; margin-top: 8px; }
 
-@media (max-width: 600px) {
-  .grid2, .grid3 { grid-template-columns: 1fr; }
-  .topbar { padding: 12px 16px; }
+/* ---------- Tablet ---------- */
+@media (max-width: 860px) {
+  .grid3 { grid-template-columns: 1fr 1fr; }
 }
+
+/* ---------- Phones ---------- */
+@media (max-width: 640px) {
+  body { font-size: 15px; -webkit-text-size-adjust: 100%; }
+  .small { font-size: 13px; }
+  h2 { font-size: 20px; }
+
+  /* Header */
+  .topbar { padding: 10px 12px; padding-top: max(10px, env(safe-area-inset-top)); gap: 8px; }
+  .brand { font-size: 18px; flex-shrink: 0; }
+  .topbar-right { gap: 4px; min-width: 0; }
+  .who { flex-direction: column; align-items: flex-end; gap: 0; line-height: 1.2; }
+  .who-name { max-width: 150px; font-size: 14px; }
+  .topbar .btn { padding: 8px 10px; }
+
+  .container { padding: 12px 12px calc(32px + env(safe-area-inset-bottom)); }
+
+  /* Comfortable tap targets; 16px inputs stop iOS from zooming on focus */
+  .btn { min-height: 44px; padding: 10px 16px; }
+  .btn.small { min-height: 38px; padding: 8px 12px; font-size: 14px; margin-left: 0; }
+  input, select, textarea { font-size: 16px; padding: 11px 12px; min-height: 44px; }
+  textarea { min-height: 88px; }
+  label { font-size: 14px; gap: 6px; }
+
+  /* Stats: compact 3-across */
+  .stats { grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+  .stat { padding: 10px 12px; }
+  .stat-value { font-size: 20px; }
+  .stat .small { font-size: 11px; line-height: 1.25; display: block; }
+
+  /* Tabs scroll sideways instead of squashing */
+  .tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; margin-bottom: 12px; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex-shrink: 0; padding: 12px 14px; white-space: nowrap; }
+  .tabs.compact { width: 100%; border-bottom: 1px solid var(--border); }
+
+  /* Filters: two selects side by side, action button full width */
+  .toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .toolbar select { min-width: 0; width: 100%; }
+  .toolbar .spacer { display: none; }
+  .toolbar .btn { grid-column: 1 / -1; }
+
+  /* Tables become a list of cards */
+  .card.table-card { background: none; border: none; padding: 0; }
+  .table-wrap { overflow: visible; }
+  table.stack thead { display: none; }
+  table.stack, table.stack tbody { display: block; }
+  table.stack tr {
+    display: block; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px;
+  }
+  table.stack tr.clickable:active { background: #f8f9fc; }
+  table.stack tr.clickable:hover td { background: none; }
+  table.stack td {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 5px 0; border: none; text-align: right; min-height: 30px;
+  }
+  table.stack td[data-label]::before { content: attr(data-label); color: var(--muted); font-size: 13px; text-align: left; flex-shrink: 0; }
+  table.stack td.cell-title { display: block; text-align: left; font-size: 16px; padding: 0 0 8px; margin-bottom: 4px; border-bottom: 1px solid var(--border); }
+  table.stack td.cell-wrap { word-break: break-all; }
+  table.stack td.cell-actions { justify-content: stretch; gap: 8px; padding-top: 10px; margin-top: 4px; border-top: 1px solid var(--border); }
+  table.stack td.cell-actions .btn { flex: 1; }
+  table.stack td.cell-actions .btn.ghost, .card-actions .btn.ghost { border-color: var(--border); }
+  table.stack td[colspan] { display: block; text-align: center; }
+
+  /* Card grids: single column */
+  .task-grid, .feedback-grid { grid-template-columns: 1fr; gap: 10px; margin-top: 10px; }
+  .task-card { padding: 14px; gap: 10px; }
+  .task-card h3 { font-size: 17px; }
+  .card-actions { gap: 8px; padding-top: 10px; flex-wrap: wrap; }
+  .card-actions .btn { flex: 1; }
+
+  /* Popups become bottom sheets */
+  .modal-backdrop { place-items: end stretch; padding: 0; }
+  .modal {
+    max-width: none; max-height: 92vh; border-radius: 16px 16px 0 0;
+    padding: 8px 16px calc(16px + env(safe-area-inset-bottom));
+    animation: sheet-up .2s ease-out;
+  }
+  .modal::before { content: ''; display: block; width: 40px; height: 4px; border-radius: 2px; background: var(--border); margin: 0 auto 10px; }
+  .modal-head { position: sticky; top: -8px; background: var(--card); padding: 6px 0 10px; margin: 0 0 6px; z-index: 1; }
+  .modal-head h3 { font-size: 18px; padding-right: 8px; }
+  .grid2, .grid3 { grid-template-columns: 1fr; }
+  .actions { gap: 10px; }
+  /* Keep Save/Cancel reachable at the bottom of tall sheets */
+  .modal .actions {
+    position: sticky; bottom: calc(-16px - env(safe-area-inset-bottom)); z-index: 1;
+    background: var(--card); border-top: 1px solid var(--border);
+    margin: 16px -16px calc(-16px - env(safe-area-inset-bottom));
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  }
+  .actions .spacer { display: none; }
+  .actions .btn { flex: 1; }
+  .meta { grid-template-columns: 96px 1fr; gap: 8px 12px; }
+  label.inline select { flex: 1; width: 100%; }
+  .note-form .btn { flex-shrink: 0; }
+  .star-input { gap: 8px; }
+  .star-input button { font-size: 40px; }
+
+  .login-card { padding: 24px 20px; }
+}
+
+@keyframes sheet-up { from { transform: translateY(40px); opacity: .6; } to { transform: none; opacity: 1; } }

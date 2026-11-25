@@ -9,8 +9,9 @@ export default function Layout({ children }) {
       <header className="topbar">
         <div className="brand">Biligiri</div>
         <div className="topbar-right">
-          <span className="muted">
-            {user.name} · <span className="role">{user.role}</span>
+          <span className="who">
+            <span className="who-name">{user.name}</span>
+            <span className="role">{user.role}</span>
           </span>
           <button
             className="btn ghost"

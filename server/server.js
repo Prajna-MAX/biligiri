@@ -5,6 +5,8 @@ const cors = require('cors');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const ensureAdmin = require('./ensureAdmin');
+const { initPush } = require('./notify');
+const Task = require('./models/Task');
 
 const PROD = process.env.NODE_ENV === 'production';
 for (const key of ['MONGO_URI', 'JWT_SECRET']) {
@@ -35,7 +37,21 @@ app.use(
   })
 );
 
+// The customer feedback page needs no login, so limit how hard anyone can hit it
+app.use(
+  '/api/public',
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 60,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { message: 'Too many requests. Please try again in a few minutes.' },
+  })
+);
+
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.use('/api/public', require('./routes/public'));
+app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/tasks', require('./routes/tasks'));
@@ -49,8 +65,8 @@ app.get(/^\/(?!api).*/, (_req, res, next) =>
 
 // Express 5 forwards errors thrown in async handlers here
 app.use((err, _req, res, _next) => {
-  console.error(err);
   const status = err.name === 'ValidationError' || err.name === 'CastError' ? 400 : 500;
+  if (status === 500) console.error(err);
   res.status(status).json({ message: status === 500 && PROD ? 'Server error' : err.message || 'Server error' });
 });
 
@@ -58,6 +74,9 @@ const PORT = process.env.PORT || 5000;
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => require('./models/User').syncIndexes()) // keep DB indexes in line with the schema
+  .then(() => Task.syncIndexes())
+  .then(() => Task.backfillFeedbackTokens())
+  .then(() => initPush())
   .then(ensureAdmin)
   .then(({ status, phone }) => {
     if (status !== 'exists') console.log(`Admin account ready (phone ${phone})`);

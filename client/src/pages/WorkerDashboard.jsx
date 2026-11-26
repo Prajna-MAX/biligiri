@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
-import { Modal, PriorityBadge, StatusBadge, Stars, Timeline, STATUS_LABEL, fmtDate } from '../components/ui';
+import {
+  FeedbackSource, Modal, PriorityBadge, ShareFeedbackLink, StatusBadge, Stars, Timeline, STATUS_LABEL, fmtDate,
+} from '../components/ui';
+import { formatPhone } from '../phone';
+import useTaskFromUrl from '../useTaskFromUrl';
 
 export default function WorkerDashboard() {
   const [tasks, setTasks] = useState([]);
@@ -20,7 +24,13 @@ export default function WorkerDashboard() {
 
   useEffect(() => {
     load();
+    // A new notification usually means a new/changed task: refresh the list
+    window.addEventListener('biligiri:new-notification', load);
+    return () => window.removeEventListener('biligiri:new-notification', load);
   }, [load]);
+
+  // Opened from a notification (?task=<id>)
+  useTaskFromUrl(setSelected);
 
   const replace = (t) => {
     setTasks((ts) => ts.map((x) => (x._id === t._id ? t : x)));
@@ -82,7 +92,7 @@ export default function WorkerDashboard() {
                 <button className="btn primary small" onClick={() => updateStatus(t, 'completed')}>Mark complete</button>
               )}
               {t.status === 'completed' && !t.feedback && (
-                <button className="btn primary small" onClick={() => setFeedbackFor(t)}>Collect feedback</button>
+                <button className="btn primary small" onClick={() => setFeedbackFor(t)}>Get feedback</button>
               )}
               {t.feedback && <Stars value={t.feedback.rating} />}
               <button className="btn ghost small" onClick={() => setSelected(t)}>Details</button>
@@ -136,6 +146,7 @@ function WorkerTaskDetail({ task, onClose, onStatus, onChanged, onFeedback }) {
         {task.description && <p>{task.description}</p>}
         <dl className="meta">
           <dt>Customer</dt><dd>{task.customerName || '—'}</dd>
+          {task.customerPhone && (<><dt>Phone</dt><dd><a href={`tel:+91${task.customerPhone}`}>{formatPhone(task.customerPhone)}</a></dd></>)}
           <dt>Location</dt><dd>{task.location || '—'}</dd>
           <dt>Due</dt><dd>{fmtDate(task.dueDate)}</dd>
           <dt>Assigned by</dt><dd>{task.createdBy?.name || '—'}</dd>
@@ -151,12 +162,17 @@ function WorkerTaskDetail({ task, onClose, onStatus, onChanged, onFeedback }) {
         <h4>Customer feedback</h4>
         {task.feedback ? (
           <div className="feedback-box">
-            <Stars value={task.feedback.rating} />
+            <div className="row-between"><Stars value={task.feedback.rating} /><FeedbackSource feedback={task.feedback} /></div>
             {task.feedback.comment && <p className="quote">“{task.feedback.comment}”</p>}
-            <button className="btn ghost small" onClick={onFeedback}>Edit feedback</button>
+            {task.feedback.source !== 'customer' && (
+              <button className="btn ghost small" onClick={onFeedback}>Edit feedback</button>
+            )}
           </div>
         ) : task.status === 'completed' ? (
-          <button className="btn primary small" onClick={onFeedback}>Collect feedback</button>
+          <>
+            <ShareFeedbackLink task={task} />
+            <button className="btn ghost small record-btn" onClick={onFeedback}>Or record their rating yourself</button>
+          </>
         ) : (
           <p className="muted">Available once the task is completed.</p>
         )}
@@ -173,6 +189,7 @@ function WorkerTaskDetail({ task, onClose, onStatus, onChanged, onFeedback }) {
 }
 
 function FeedbackForm({ task, onClose, onSaved }) {
+  const [manual, setManual] = useState(!!task.feedback);
   const [rating, setRating] = useState(task.feedback?.rating || 0);
   const [hover, setHover] = useState(0);
   const [customerName, setCustomerName] = useState(task.feedback?.customerName || task.customerName || '');
@@ -190,31 +207,47 @@ function FeedbackForm({ task, onClose, onSaved }) {
   };
 
   return (
-    <Modal title="Customer feedback" onClose={onClose}>
-      <form onSubmit={submit} className="form">
-        <p className="muted">Ask the customer how the work on <strong>{task.title}</strong> went.</p>
-        {error && <div className="alert">{error}</div>}
-        <div className="star-input" onMouseLeave={() => setHover(0)}>
-          {[1, 2, 3, 4, 5].map((n) => (
-            <button
-              type="button"
-              key={n}
-              className={n <= (hover || rating) ? 'on' : ''}
-              onMouseEnter={() => setHover(n)}
-              onClick={() => setRating(n)}
-              aria-label={`${n} star${n > 1 ? 's' : ''}`}
-            >
-              ★
-            </button>
-          ))}
+    <Modal title="Get customer feedback" onClose={onClose}>
+      {!task.feedback && (
+        <div className="form">
+          <p className="muted">
+            Work on <strong>{task.title}</strong> is done. Send {task.customerName || 'the customer'} the feedback link:
+          </p>
+          <ShareFeedbackLink task={task} compact />
         </div>
-        <label>Customer name<input value={customerName} onChange={(e) => setCustomerName(e.target.value)} /></label>
-        <label>Comments<textarea rows={4} value={comment} onChange={(e) => setComment(e.target.value)} /></label>
+      )}
+
+      {!manual ? (
         <div className="actions">
-          <button type="button" className="btn ghost" onClick={onClose}>Later</button>
-          <button className="btn primary">Submit feedback</button>
+          <button type="button" className="btn ghost" onClick={() => setManual(true)}>Customer is here? Rate now</button>
+          <button type="button" className="btn primary" onClick={onClose}>Done</button>
         </div>
-      </form>
+      ) : (
+        <form onSubmit={submit} className="form manual-feedback">
+          <p className="muted">{task.feedback ? 'Update' : 'Or record'} the customer's rating for <strong>{task.title}</strong>.</p>
+          {error && <div className="alert">{error}</div>}
+          <div className="star-input" onMouseLeave={() => setHover(0)}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                type="button"
+                key={n}
+                className={n <= (hover || rating) ? 'on' : ''}
+                onMouseEnter={() => setHover(n)}
+                onClick={() => setRating(n)}
+                aria-label={`${n} star${n > 1 ? 's' : ''}`}
+              >
+                ★
+              </button>
+            ))}
+          </div>
+          <label>Customer name<input value={customerName} onChange={(e) => setCustomerName(e.target.value)} /></label>
+          <label>Comments<textarea rows={4} value={comment} onChange={(e) => setComment(e.target.value)} /></label>
+          <div className="actions">
+            <button type="button" className="btn ghost" onClick={onClose}>Later</button>
+            <button className="btn primary">Save rating</button>
+          </div>
+        </form>
+      )}
     </Modal>
   );
 }

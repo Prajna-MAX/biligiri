@@ -17,6 +17,19 @@ MongoDB · Express · React (Vite) · Node.js
 - Start work → Mark complete, add progress notes
 - After completing a task, record the customer's feedback (1–5 stars and a comment)
 
+**Customer feedback page (no login)**
+- Every task gets a private link: `https://<site>/f/<token>`
+- After completing a task the worker sends it with one tap (WhatsApp to the customer's number, Copy, or Share)
+- The customer sees the job status and rates it (1–5 stars + comment); they can change it later
+- Admin sees each rating labelled *From customer* or *Recorded by worker*
+
+**Notifications**
+- Bell with unread count for admins and workers (checks every 30 s and when the app is reopened)
+- Workers: new task assigned, task reassigned away. Admins: task completed, customer feedback received. Workers also see their customers' ratings.
+- Phone/desktop alerts (web push) after tapping **Turn on alerts** in the bell. Android and desktop: works in the browser.
+  iPhone: add Biligiri to the Home Screen first (Share → Add to Home Screen), then turn on alerts from there.
+- Push keys are generated automatically and stored in the database (or set `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`).
+
 ## Setup
 
 Requirements: Node 18+ and MongoDB running locally (or a MongoDB Atlas URI).
@@ -66,6 +79,10 @@ npm start       # Express serves the API and the built app on :5000
 | POST | `/api/tasks/:id/updates` | both | Add a progress note |
 | POST | `/api/tasks/:id/feedback` | worker | Record customer feedback (task must be completed) |
 | DELETE | `/api/tasks/:id` | admin | Delete task |
+| GET | `/api/notifications` | both | Latest notifications + unread count |
+| POST | `/api/notifications/read-all`, `/:id/read` | both | Mark read |
+| POST | `/api/notifications/push/subscribe` | both | Register this device for push alerts |
+| GET/POST | `/api/public/feedback/:token` | anyone with the link | Customer job view / submit rating (rate-limited) |
 
 ## Structure
 

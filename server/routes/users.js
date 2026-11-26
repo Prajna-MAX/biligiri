@@ -1,6 +1,8 @@
 const router = require('express').Router();
 const User = require('../models/User');
 const Task = require('../models/Task');
+const Notification = require('../models/Notification');
+const PushSubscription = require('../models/PushSubscription');
 const { protect, adminOnly } = require('../middleware/auth');
 const { normalizePhone, isValidPhone } = require('../utils/phone');
 
@@ -53,7 +55,11 @@ router.delete('/:id', async (req, res) => {
   if (open > 0) {
     return res.status(400).json({ message: `Reassign this worker's ${open} open task(s) first` });
   }
-  await user.deleteOne();
+  await Promise.all([
+    user.deleteOne(),
+    Notification.deleteMany({ user: user._id }),
+    PushSubscription.deleteMany({ user: user._id }),
+  ]);
   res.json({ message: 'Worker removed' });
 });
 

@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api';
 import { formatPhone, isValidPhone } from '../phone';
 import {
-  Modal, PriorityBadge, StatusBadge, Stars, Timeline, STATUS_LABEL, fmtDate, fmtDateTime,
+  FeedbackSource, Modal, PriorityBadge, ShareFeedbackLink, StatusBadge, Stars, Timeline, STATUS_LABEL, fmtDate, fmtDateTime,
 } from '../components/ui';
+import useTaskFromUrl from '../useTaskFromUrl';
 
 const EMPTY_TASK = {
-  title: '', description: '', customerName: '', location: '', priority: 'medium', dueDate: '', assignedTo: '',
+  title: '', description: '', customerName: '', customerPhone: '', location: '', priority: 'medium', dueDate: '', assignedTo: '',
 };
 
 export default function AdminDashboard() {
@@ -42,7 +43,12 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     load();
+    window.addEventListener('biligiri:new-notification', load);
+    return () => window.removeEventListener('biligiri:new-notification', load);
   }, [load]);
+
+  // Opened from a notification (?task=<id>)
+  useTaskFromUrl(setViewing);
 
   const deleteTask = async (task) => {
     if (!confirm(`Delete task "${task.title}"?`)) return;
@@ -187,12 +193,12 @@ export default function AdminDashboard() {
             <div key={t._id} className="card feedback-card">
               <div className="row-between">
                 <Stars value={t.feedback.rating} />
-                <span className="muted small">{fmtDateTime(t.feedback.submittedAt)}</span>
+                <FeedbackSource feedback={t.feedback} />
               </div>
               {t.feedback.comment && <p className="quote">“{t.feedback.comment}”</p>}
               <div className="small">
                 <div><strong>{t.feedback.customerName || 'Customer'}</strong> on <em>{t.title}</em></div>
-                <div className="muted">Worker: {t.assignedTo?.name || 'Removed'}</div>
+                <div className="muted">Worker: {t.assignedTo?.name || 'Removed'} · {fmtDateTime(t.feedback.submittedAt)}</div>
               </div>
             </div>
           ))}
@@ -242,14 +248,17 @@ function TaskForm({ task, workers, onClose, onSaved }) {
     ...task,
     assignedTo: task.assignedTo?._id || task.assignedTo || '',
     dueDate: task.dueDate ? task.dueDate.slice(0, 10) : '',
+    customerPhone: task.customerPhone || '',
   });
+  const phoneError = form.customerPhone && !isValidPhone(form.customerPhone) ? 'Enter a valid 10-digit mobile number' : '';
   const [error, setError] = useState('');
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   const submit = async (e) => {
     e.preventDefault();
+    if (phoneError) return setError(phoneError);
     const body = {
-      title: form.title, description: form.description, customerName: form.customerName,
+      title: form.title, description: form.description, customerName: form.customerName, customerPhone: form.customerPhone,
       location: form.location, priority: form.priority, dueDate: form.dueDate, assignedTo: form.assignedTo,
     };
     try {
@@ -268,8 +277,21 @@ function TaskForm({ task, workers, onClose, onSaved }) {
         <label>Description<textarea rows={3} value={form.description} onChange={set('description')} /></label>
         <div className="grid2">
           <label>Customer name<input value={form.customerName} onChange={set('customerName')} /></label>
-          <label>Location<input value={form.location} onChange={set('location')} /></label>
+          <label>
+            <span>Customer phone <span className="muted small">(for WhatsApp link)</span></span>
+            <input
+              type="tel"
+              inputMode="tel"
+              maxLength={16}
+              placeholder="98765 43210"
+              value={form.customerPhone}
+              onChange={(e) => setForm({ ...form, customerPhone: e.target.value.replace(/[^\d+\s-]/g, '') })}
+              className={phoneError ? 'invalid' : ''}
+            />
+            {phoneError && <span className="field-error">{phoneError}</span>}
+          </label>
         </div>
+        <label>Location<input value={form.location} onChange={set('location')} /></label>
         <div className="grid3">
           <label>Assign to
             <select value={form.assignedTo} onChange={set('assignedTo')} required>
@@ -325,6 +347,7 @@ function TaskDetail({ task, onClose, onEdit, onDelete, onChanged }) {
         <dl className="meta">
           <dt>Worker</dt><dd>{task.assignedTo?.name || 'Removed'}</dd>
           <dt>Customer</dt><dd>{task.customerName || '—'}</dd>
+          {task.customerPhone && (<><dt>Phone</dt><dd><a href={`tel:+91${task.customerPhone}`}>{formatPhone(task.customerPhone)}</a></dd></>)}
           <dt>Location</dt><dd>{task.location || '—'}</dd>
           <dt>Due</dt><dd>{fmtDate(task.dueDate)}</dd>
           <dt>Created</dt><dd>{fmtDateTime(task.createdAt)}</dd>
@@ -341,16 +364,18 @@ function TaskDetail({ task, onClose, onEdit, onDelete, onChanged }) {
         <h4>Customer feedback</h4>
         {task.feedback ? (
           <div className="feedback-box">
-            <Stars value={task.feedback.rating} />
+            <div className="row-between"><Stars value={task.feedback.rating} /><FeedbackSource feedback={task.feedback} /></div>
             {task.feedback.comment && <p className="quote">“{task.feedback.comment}”</p>}
             <div className="muted small">
-              {task.feedback.customerName || 'Customer'} · recorded by {task.feedback.submittedBy?.name} ·{' '}
-              {fmtDateTime(task.feedback.submittedAt)}
+              {task.feedback.customerName || 'Customer'}
+              {task.feedback.source !== 'customer' && task.feedback.submittedBy?.name && ` · recorded by ${task.feedback.submittedBy.name}`}
+              {' · '}{fmtDateTime(task.feedback.submittedAt)}
             </div>
           </div>
         ) : (
           <p className="muted">No feedback yet.</p>
         )}
+        {task.status === 'completed' && task.feedback?.source !== 'customer' && <ShareFeedbackLink task={task} />}
 
         <h4>Progress updates</h4>
         <Timeline updates={task.updates} />

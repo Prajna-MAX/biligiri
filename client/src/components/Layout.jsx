@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
+import { unlinkPush } from '../push';
+import NotificationBell from './NotificationBell';
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth();
@@ -13,9 +15,11 @@ export default function Layout({ children }) {
             <span className="who-name">{user.name}</span>
             <span className="role">{user.role}</span>
           </span>
+          <NotificationBell />
           <button
             className="btn ghost"
-            onClick={() => {
+            onClick={async () => {
+              await unlinkPush(); // stop this device getting the logged-out user's alerts
               logout();
               navigate('/login');
             }}

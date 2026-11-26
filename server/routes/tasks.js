@@ -2,6 +2,7 @@ const router = require('express').Router();
 const Task = require('../models/Task');
 const User = require('../models/User');
 const { protect, adminOnly } = require('../middleware/auth');
+const { notify, notifyAdmins } = require('../notify');
 
 router.use(protect);
 
@@ -23,6 +24,15 @@ async function loadTask(req, res, next) {
 }
 
 const STATUSES = ['pending', 'in_progress', 'completed'];
+
+const dueText = (d) => (d ? ` · due ${new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}` : '');
+
+const notifyAssigned = (task) =>
+  notify(task.assignedTo, {
+    title: `New task: ${task.title}`,
+    body: [task.customerName, task.location].filter(Boolean).join(' · ') + dueText(task.dueDate) || 'Open Biligiri for details',
+    task: task._id,
+  });
 
 const setStatus = (task, status) => {
   task.status = status;
@@ -71,30 +81,33 @@ router.get('/:id', loadTask, async (req, res) => {
 });
 
 router.post('/', adminOnly, async (req, res) => {
-  const { title, description, customerName, location, priority, dueDate, assignedTo } = req.body;
+  const { title, description, customerName, customerPhone, location, priority, dueDate, assignedTo } = req.body;
   if (!title || !assignedTo) return res.status(400).json({ message: 'Title and worker are required' });
   if (!(await User.exists({ _id: assignedTo, role: 'worker' }))) {
     return res.status(400).json({ message: 'Assigned worker not found' });
   }
   const task = await Task.create({
-    title, description, customerName, location, priority,
+    title, description, customerName, customerPhone, location, priority,
     dueDate: dueDate || undefined,
     assignedTo,
     createdBy: req.user._id,
   });
+  notifyAssigned(task);
   res.status(201).json(await populate(Task.findById(task._id)));
 });
 
 router.put('/:id', loadTask, async (req, res) => {
   const { task } = req;
   const { status } = req.body;
+  const previousWorker = String(task.assignedTo);
+  const wasCompleted = task.status === 'completed';
   if (status && !STATUSES.includes(status)) return res.status(400).json({ message: 'Invalid status' });
 
   if (req.user.role === 'admin') {
     if (req.body.assignedTo && !(await User.exists({ _id: req.body.assignedTo, role: 'worker' }))) {
       return res.status(400).json({ message: 'Assigned worker not found' });
     }
-    const fields = ['title', 'description', 'customerName', 'location', 'priority', 'dueDate', 'assignedTo'];
+    const fields = ['title', 'description', 'customerName', 'customerPhone', 'location', 'priority', 'dueDate', 'assignedTo'];
     fields.forEach((f) => {
       if (req.body[f] !== undefined) task[f] = req.body[f] === '' && f === 'dueDate' ? undefined : req.body[f];
     });
@@ -108,6 +121,14 @@ router.put('/:id', loadTask, async (req, res) => {
     }
   }
   await task.save();
+
+  if (String(task.assignedTo) !== previousWorker) {
+    notifyAssigned(task);
+    notify(previousWorker, { title: `Task reassigned: ${task.title}`, body: 'This task was moved to another worker.' });
+  }
+  if (req.user.role === 'worker' && task.status === 'completed' && !wasCompleted) {
+    notifyAdmins({ title: `Task completed: ${task.title}`, body: `Completed by ${req.user.name}`, task: task._id });
+  }
   res.json(await populate(Task.findById(task._id)));
 });
 
@@ -128,12 +149,16 @@ router.post('/:id/feedback', loadTask, async (req, res) => {
   if (task.status !== 'completed') {
     return res.status(400).json({ message: 'Complete the task before collecting feedback' });
   }
+  if (task.feedback?.source === 'customer') {
+    return res.status(400).json({ message: 'The customer already gave feedback through their link' });
+  }
   const rating = Number(req.body.rating);
   if (!(rating >= 1 && rating <= 5)) return res.status(400).json({ message: 'Rating must be between 1 and 5' });
   task.feedback = {
     customerName: req.body.customerName || task.customerName,
     rating,
     comment: req.body.comment,
+    source: 'worker',
     submittedBy: req.user._id,
     submittedAt: new Date(),
   };
